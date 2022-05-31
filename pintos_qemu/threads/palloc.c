@@ -33,6 +33,7 @@ struct pool
     uint8_t *base;                      /* Base of pool. */
   };
 
+
 /* Two pools: one for kernel data, one for user pages. */
 static struct pool kernel_pool, user_pool;
 
@@ -51,9 +52,14 @@ palloc_init (size_t user_page_limit)
   size_t free_pages = (free_end - free_start) / PGSIZE;
   size_t user_pages = free_pages / 2;
   size_t kernel_pages;
+  printf("init_ram_pages : %d\n",init_ram_pages);
+  printf("free_start value : %p\n",free_start);
+  printf("free_end value : %p\n",free_end);
+
   if (user_pages > user_page_limit)
     user_pages = user_page_limit;
   kernel_pages = free_pages - user_pages;
+
 
   /* Give half of memory to kernel, half to user. */
   init_pool (&kernel_pool, free_start, kernel_pages, "kernel pool");
@@ -70,6 +76,7 @@ palloc_init (size_t user_page_limit)
 void *
 palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
 {
+  printf("palloc page_cnt : %zu\n",page_cnt);
   struct pool *pool = flags & PAL_USER ? &user_pool : &kernel_pool;
   void *pages;
   size_t page_idx;
@@ -96,7 +103,7 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
       if (flags & PAL_ASSERT)
         PANIC ("palloc_get: out of pages");
     }
-
+  printf("palloc at memory : %p\n",pages);
   return pages;
 }
 
@@ -117,6 +124,7 @@ palloc_get_page (enum palloc_flags flags)
 void
 palloc_free_multiple (void *pages, size_t page_cnt) 
 {
+  printf("palloc_free at memory : %p\n",pages);
   struct pool *pool;
   size_t page_idx;
 
@@ -162,9 +170,11 @@ init_pool (struct pool *p, void *base, size_t page_cnt, const char *name)
   page_cnt -= bm_pages;
 
   printf ("%zu pages available in %s.\n", page_cnt, name);
+  printf ("%zu bitmap_size in %s.\n", bm_pages, name);
 
   /* Initialize the pool. */
   lock_init (&p->lock);
+  printf ("call bitmap_create_in_buf(page_cnt:%d,base, bm_pages*PGSIZE:%d)\n", page_cnt,bm_pages * PGSIZE);
   p->used_map = bitmap_create_in_buf (page_cnt, base, bm_pages * PGSIZE);
   p->base = base + bm_pages * PGSIZE;
 }
@@ -188,4 +198,80 @@ palloc_get_status (enum palloc_flags flags)
   //IMPLEMENT THIS
   //PAGE STATUS 0 if FREE, 1 if USED
   //32 PAGE STATUS PER LINE
+
+  struct bitmap *kernel_bitmap = kernel_pool.used_map;
+  struct bitmap *user_bitmap = user_pool.used_map;
+
+  size_t kernel_bitmap_size = bitmap_size(kernel_bitmap);
+  size_t user_bitmap_size = bitmap_size(user_bitmap);
+  
+  bool is_user = flags & PAL_USER ? true : false;
+
+  if(!is_user){
+    // print kernel pool's page
+    printf("========== palloc_get_status:Kernel ==========\n");
+    printf("Kernel area page count : %d\n",kernel_bitmap_size);
+    int i;
+    for(i=0; i< kernel_bitmap_size / 32 ;i++){
+        for(int j=0; j<32; j++){
+          printf("%zu ",bitmap_test(kernel_bitmap,32*i+j));
+        }
+      printf("\n");
+    }
+
+    for(int j=0; j <kernel_bitmap_size % 32;j++){
+      printf("%zu ",bitmap_test(kernel_bitmap,32*i+j));
+    }
+    printf("\n");
+  }else{
+    // print user pool's page
+    printf("========== palloc_get_status:user ==========\n");
+    printf("User area page count : %d\n",user_bitmap_size);
+    int i;
+    for(i=0; i< user_bitmap_size / 32 ;i++){
+        for(int j=0; j<32;j++){
+          printf("%zu ",bitmap_test(user_bitmap,32*i+j));
+        }
+      printf("\n");
+    }
+
+    for(int j=0; j<user_bitmap_size % 32; j++){
+        printf("%zu ",bitmap_test(user_bitmap,32*i+j));
+    }
+    printf("\n");
+    }
+}
+
+void *
+palloc_get_multiple_buddy (enum palloc_flags flags, size_t page_cnt)
+{
+  printf("palloc page_cnt : %zu\n",page_cnt);
+  struct pool *pool = flags & PAL_USER ? &user_pool : &kernel_pool;
+  void *pages;
+  size_t page_idx;
+
+  if (page_cnt == 0)
+    return NULL;
+
+  lock_acquire (&pool->lock);
+  page_idx = bitmap_scan_and_flip (pool->used_map, 0, page_cnt, false);
+  lock_release (&pool->lock);
+
+  if (page_idx != BITMAP_ERROR)
+    pages = pool->base + PGSIZE * page_idx;
+  else
+    pages = NULL;
+
+  if (pages != NULL) 
+    {
+      if (flags & PAL_ZERO)
+        memset (pages, 0, PGSIZE * page_cnt);
+    }
+  else 
+    {
+      if (flags & PAL_ASSERT)
+        PANIC ("palloc_get: out of pages");
+    }
+
+  return pages;
 }
