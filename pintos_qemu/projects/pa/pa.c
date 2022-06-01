@@ -13,29 +13,6 @@ void run_patest(char **argv)
     
 
     while (1) {
-        // int *num;
-        // num = (int*)malloc(1024);
-        // num[0]=3;
-        // num[1]=10;
-        // palloc_get_status(0);
-        // // palloc_get_status(PAL_USER);
-        // free(num);
-
-        // void *test2 = malloc(1024*4*3);
-        // palloc_get_status(0);
-        // palloc_get_status(PAL_USER);
-
-        // void *test3 = malloc(1024*4*7);
-        // palloc_get_status(0);
-        // palloc_get_status(PAL_USER);
-
-        // void *test4 = malloc(1024*4*2);
-        // palloc_get_status(0);
-        // palloc_get_status(PAL_USER);
-        // free(test2);
-        // free(test3);
-        // free(test4);
-        // palloc_get_status(0);
         
         /* Test for kernel page */
 
@@ -139,12 +116,6 @@ void run_patest(char **argv)
         palloc_free_multiple(user_palloc7,50);
         palloc_get_status(PAL_USER);
 
-
-
-
         timer_msleep(1000);
-//        palloc_get_multiple(0,25);
-//       palloc_get_status(0);
-//        timer_msleep(1000);
     }
 }

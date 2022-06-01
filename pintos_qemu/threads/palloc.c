@@ -473,7 +473,7 @@ palloc_get_status (enum palloc_flags flags)
     // print user pool's page
     printf("\033[34m======================= palloc_get_status:user =======================\n\033[0m");
     printf("User area page count : %d\n",user_bitmap_size);
-    printf("%6d%16d%16d%16d%16d\n",0,8,16,24,32);
+    printf("%8d%16d%16d%16d%16d\n",0,8,16,24,32);
     unsigned int i;
     for(i=0; i< user_bitmap_size / 32 ;i++){
         printf("[%3d]  ",32*i);
