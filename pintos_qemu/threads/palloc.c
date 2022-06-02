@@ -36,7 +36,7 @@ struct pool
 /* buddy system. */
 struct buddy {
     size_t size;
-    size_t longest[2000];
+    size_t longest[1024];
 };
 
 size_t bitmap_scan_and_flip_buddy (struct buddy* buddy,struct bitmap *b, size_t start, size_t cnt, bool value);
@@ -103,7 +103,7 @@ static inline size_t next_power_of_2(size_t size)
  * @return pointer to the allocated buddy structure */
 struct buddy *buddy_new(size_t page_cnt, char* name)
 {
-    printf("[buddy_new] page_cnt : %d, name : %s\n",page_cnt,name);
+//    printf("[buddy_new] page_cnt : %d, name : %s\n",page_cnt,name);
     struct buddy *self = NULL;
     size_t node_size;
 
@@ -111,7 +111,7 @@ struct buddy *buddy_new(size_t page_cnt, char* name)
 
     // set buddy size to next power of 2
     page_cnt = next_power_of_2(page_cnt);
-    printf("[buddy_new] next_power of 2 page_cnt : %d\n",page_cnt);
+//    printf("[buddy_new] next_power of 2 page_cnt : %d\n",page_cnt);
 
     /* alloacte an array to represent a complete binary tree */
     if(!strcmp(name,"kernel pool")){
@@ -129,9 +129,8 @@ struct buddy *buddy_new(size_t page_cnt, char* name)
             node_size >>= 1;
         }
         self->longest[i] = node_size;
-        //printf("[buddy_new] i : %d, node_size = %d\n",i,node_size);
     }
-    printf("[buddy_new] self->size : %d\n",self->size);
+//    printf("[buddy_new] self->size : %d\n",self->size);
     return self;
 }
 
@@ -264,9 +263,9 @@ palloc_init (size_t user_page_limit)
   size_t free_pages = (free_end - free_start) / PGSIZE;
   size_t user_pages = free_pages / 2;
   size_t kernel_pages;
-  printf("[palloc_init] init_ram_pages : %d\n",init_ram_pages);
-  printf("[palloc_init] free_start value : %p\n",free_start);
-  printf("[palloc_init] free_end value : %p\n",free_end);
+//  printf("[palloc_init] init_ram_pages : %d\n",init_ram_pages);
+//  printf("[palloc_init] free_start value : %p\n",free_start);
+//  printf("[palloc_init] free_end value : %p\n",free_end);
 
   if (user_pages > user_page_limit)
     user_pages = user_page_limit;
@@ -377,7 +376,7 @@ palloc_free_multiple (void *pages, size_t page_cnt)
   ASSERT (bitmap_all (pool->used_map, page_idx, page_cnt));
   bitmap_set_multiple (pool->used_map, page_idx, page_cnt, false);
 
-  printf("\033[32m[pfree] deallocate page in idx: %d, page_cnt : %d\n\033[0m",page_idx,page_cnt);
+//  printf("\033[32m[pfree] deallocate page in idx: %d, page_cnt : %d\n\033[0m",page_idx,page_cnt);
 }
 
 /* Frees the page at PAGE. */
@@ -400,8 +399,8 @@ init_pool (struct pool *p, void *base, size_t page_cnt, const char *name)
     PANIC ("Not enough memory in %s for bitmap.", name);
   page_cnt -= bm_pages;
 
-  printf ("[init_pool] %zu pages available in %s.\n", page_cnt, name);
-  printf ("[init_pool] %zu bitmap_size in %s.\n", bm_pages, name);
+//  printf ("[init_pool] %zu pages available in %s.\n", page_cnt, name);
+//  printf ("[init_pool] %zu bitmap_size in %s.\n", bm_pages, name);
 
   /* Initialize the pool. */
   lock_init (&p->lock);
@@ -410,14 +409,14 @@ init_pool (struct pool *p, void *base, size_t page_cnt, const char *name)
 
   /* Initialize buddy system. */
   if(!strcmp(name,"kernel pool")){
-    printf("[init_pool] kernel buddy_new call, page_cnt : %d\n",page_cnt);
+//    printf("[init_pool] kernel buddy_new call, page_cnt : %d\n",page_cnt);
     kernel_buddy = buddy_new(page_cnt,name);
-    printf("[init_pool] kernel buddy -> size : %d\n",kernel_buddy->size);
+//    printf("[init_pool] kernel buddy -> size : %d\n",kernel_buddy->size);
   }
   if(!strcmp(name,"user pool")){
-    printf("[init_pool] user buddy_new call, page_cnt : %d\n",page_cnt);
+//    printf("[init_pool] user buddy_new call, page_cnt : %d\n",page_cnt);
     user_buddy = buddy_new(page_cnt,name);
-    printf("[init_pool] user_buddy -> size : %d\n",user_buddy->size);
+//    printf("[init_pool] user_buddy -> size : %d\n",user_buddy->size);
   }
 
 

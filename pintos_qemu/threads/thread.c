@@ -23,6 +23,10 @@
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
+static struct list feedback_queue_0;
+static struct list feedback_queue_1;
+static struct list feedback_queue_2;
+static struct list feedback_queue_3;
 
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
@@ -98,6 +102,11 @@ thread_init (void)
   list_init (&all_list);
   list_init (&sleep_list);
 
+  list_init(&feedback_queue_0);
+  list_init(&feedback_queue_1);
+  list_init(&feedback_queue_2);
+  list_init(&feedback_queue_3);
+  
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
@@ -127,6 +136,7 @@ thread_start (void)
 void
 thread_tick (void) 
 {
+  printf("[thread_tick] thread_name : %s\n",thread_name());
   struct thread *t = thread_current ();
 
   /* Update statistics. */
@@ -171,6 +181,7 @@ tid_t
 thread_create (const char *name, int priority,
                thread_func *function, void *aux) 
 {
+  printf("[thread_create] thread_name : %s\n",name);
   struct thread *t;
   struct kernel_thread_frame *kf;
   struct switch_entry_frame *ef;
@@ -183,7 +194,6 @@ thread_create (const char *name, int priority,
   t = palloc_get_page (PAL_ZERO);
   if (t == NULL)
     return TID_ERROR;
-
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
@@ -220,6 +230,9 @@ thread_block (void)
 {
   ASSERT (!intr_context ());
   ASSERT (intr_get_level () == INTR_OFF);
+  if(strcmp(thread_name(),"idle")){
+    printf("[thred_block] thread_name : %s\n",thread_name());
+  }
 
   thread_current ()->status = THREAD_BLOCKED;
   schedule ();
@@ -236,6 +249,8 @@ thread_block (void)
 void
 thread_unblock (struct thread *t) 
 {
+//  printf("[%s] thread_unblock call\n",thread_name);
+  printf("[thread_unblock] thread_name : %s\n",t->name);
   enum intr_level old_level;
 
   ASSERT (is_thread (t));
@@ -243,6 +258,24 @@ thread_unblock (struct thread *t)
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
   list_push_back (&ready_list, &t->elem);
+  // switch(thread_get_priority()){
+  //   case 0:
+  //     list_push_back(&feedback_queue_0,&t->elem);
+  //     break;
+  //   case 1:
+  //     list_push_back(&feedback_queue_1,&t->elem);
+  //     break;
+  //   case 2:
+  //     list_push_back(&feedback_queue_2,&t->elem);
+  //     break;
+  //   case 3:
+  //     list_push_back(&feedback_queue_3,&t->elem);
+  //     break;
+  //   default:
+  //     ASSERT(thread_get_priority()<4);
+  //     break;    
+  // }
+
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -252,6 +285,7 @@ update_next_tick_to_wakeup (int64_t tick)
 {
   next_tick_to_wakeup = 
     (next_tick_to_wakeup > tick) ? tick : next_tick_to_wakeup;
+  printf("[update_next_tick_to_wakeup] next_tick_to_wakeup = %d thread_name = %s\n",next_tick_to_wakeup,thread_name);
 }
 
 int64_t
@@ -264,6 +298,7 @@ get_next_tick_to_wakeup (void)
 void
 thread_sleep (int64_t tick)
 {
+  printf("[thread_sleep] thread_name : %s, ticks : %d\n",thread_name(),tick);
   struct thread *cur;
   enum intr_level old_level;
 
@@ -283,6 +318,7 @@ thread_sleep (int64_t tick)
 void
 thread_wakeup (int64_t current_tick)
 {
+  printf("[thread_wakeup] start\n");
   struct list_elem *e;
 
   next_tick_to_wakeup = INT64_MAX;
@@ -513,6 +549,8 @@ is_thread (struct thread *t)
 static void
 init_thread (struct thread *t, const char *name, int priority)
 {
+  printf("[init_thread] pri: %d\n",priority);
+  printf("[init_thread] name : %s, pri : %d\n",name,priority);
   enum intr_level old_level;
 
   ASSERT (t != NULL);
@@ -614,9 +652,13 @@ thread_schedule_tail (struct thread *prev)
 static void
 schedule (void) 
 {
+//  printf("[scheduling]\n");
+//  printf("[scheduling] current_thread : %s\n",running_thread()->name); 
   struct thread *cur = running_thread ();
   struct thread *next = next_thread_to_run ();
   struct thread *prev = NULL;
+
+//  printf("[scheduling] next_thread : %s\n",next->name); 
 
   ASSERT (intr_get_level () == INTR_OFF);
   ASSERT (cur->status != THREAD_RUNNING);

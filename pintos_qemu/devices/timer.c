@@ -172,6 +172,7 @@ timer_print_stats (void)
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
+  printf("[timer_interrupt] ticks:%d\n",ticks);
   ticks++;
   thread_tick ();
 

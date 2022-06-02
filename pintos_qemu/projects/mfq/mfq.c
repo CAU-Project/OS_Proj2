@@ -12,11 +12,19 @@
 
 void test_loop(void *aux)
 {
+    tid_t tid = thread_tid();
     /// TODO: make your own test
+    while(1){
+
+        printf("[%s] test_loop in\n",thread_name());
+        thread_print_stats();
+        timer_msleep(1000);
+    }
 }
 
 void run_mfqtest(char **argv)
 {   
+    printf("[run_mfqtest] argv[1] : %s\n",argv[1]);
     int cnt;
 	char *token, *save_ptr;
 
@@ -28,17 +36,18 @@ void run_mfqtest(char **argv)
 	for (token = strtok_r (argv[1], ":", &save_ptr); token != NULL; 
 		token = strtok_r (NULL, ":", &save_ptr)) {
 
-        char *subtoken, *save_ptr2, name;
+        char *subtoken, *save_ptr2, *name;
         int priority;
 
         subtoken = strtok_r (token, ".", &save_ptr2);
         name = &subtoken[1];
-        printf("thread name: %s\n", &subtoken[1]);
+        printf("[run_mfqtest] name : %s\n", name);
+
         subtoken = strtok_r (NULL, ".", &save_ptr2);
         priority = atoi(subtoken);
-        printf("priority: %d\n", priority);
 
-        // you can create threads here 
+        // you can create threads here
+        // printf("[run_mfqtest] thread name: %s\n",name); 
         thread_create(name, priority, test_loop, NULL);
 
 		cnt++;
