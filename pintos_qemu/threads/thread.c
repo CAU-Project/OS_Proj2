@@ -27,6 +27,7 @@ static struct list feedback_queue_0;
 static struct list feedback_queue_1;
 static struct list feedback_queue_2;
 static struct list feedback_queue_3;
+static int current_queue;
 
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
@@ -61,6 +62,11 @@ static long long user_ticks;    /* # of timer ticks in user programs. */
 /* Scheduling. */
 #define TIME_SLICE 4            /* # of timer ticks to give each thread. */
 static unsigned thread_ticks;   /* # of timer ticks since last yield. */
+
+#define TIME_SLICE_0 4
+#define TIME_SLICE_1 5
+#define TIME_SLICE_2 6
+#define TIME_SLICE_3 7
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -112,6 +118,9 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+
+
+  current_queue = 0;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -123,7 +132,7 @@ thread_start (void)
   struct semaphore idle_started;
   sema_init (&idle_started, 0);
   thread_create ("idle", PRI_MIN, idle, &idle_started);
-
+  
   /* Start preemptive thread scheduling. */
   intr_enable ();
 
@@ -136,7 +145,7 @@ thread_start (void)
 void
 thread_tick (void) 
 {
-  printf("[thread_tick] thread_name : %s\n",thread_name());
+  printf("[thread_tick] thread_name : %s, current_queue : %d, thread_pri : %d\n",thread_name(),current_queue,thread_current()->priority);
   struct thread *t = thread_current ();
 
   /* Update statistics. */
@@ -148,11 +157,116 @@ thread_tick (void)
 #endif
   else
     kernel_ticks++;
-
+  
   /* Enforce preemption. */
-  if (++thread_ticks >= TIME_SLICE)
-    intr_yield_on_return ();
+  // if (++thread_ticks >= TIME_SLICE)
+  // intr_yield_on_return ();
+
+  switch(current_queue){
+    case 0:
+      if(++thread_ticks >= TIME_SLICE_0)
+//        debug_queue();
+        intr_yield_on_return();
+      break;
+    case 1:
+      if(++thread_ticks >= TIME_SLICE_1)
+//        debug_queue();
+        intr_yield_on_return();
+      break;
+    case 2:
+      if(++thread_ticks >= TIME_SLICE_2)
+//        debug_queue();
+        intr_yield_on_return();
+      break;
+    case 3:
+      if(++thread_ticks >= TIME_SLICE_3)
+//        debug_queue();
+        intr_yield_on_return();
+      break;
+  }
+
+  /* increase age of low priority queue */
+  aging();  
 }
+
+
+/* increase age of thread which has 
+low priority then current thread */
+void aging(void){
+  struct list_elem *e;
+  struct thread *t;
+  switch(current_queue){
+    case 0:
+      for (e = list_begin(&feedback_queue_1); e != list_end(&feedback_queue_1);)
+      {
+        t = list_entry (e, struct thread, elem);
+        t->age = t->age + 1;
+        if (t->age >= 20){
+          printf("[aging] list_remove[&feedback_queue_1]\n");
+          printf("e : %p, e->next : %p, e->prev : %p\n",e,e->next,e->prev);
+          t->age = 0;
+          t->priority = 0;
+          list_pop_front(&feedback_queue_1);
+          list_push_back(&feedback_queue_0,&t->elem);
+          e = list_begin(&feedback_queue_1);
+          if(list_empty(&feedback_queue_1)){
+            break;  
+          }
+        }else{
+          e = list_next(e);
+        }
+      }
+    case 1:
+      for (e = list_begin(&feedback_queue_2); e != list_end(&feedback_queue_2);)
+      {
+        t = list_entry (e, struct thread, elem);
+        t->age = t->age + 1;
+        if (t->age >= 20){
+          printf("[aging] list_remove[&feedback_queue_2]\n");
+          printf("e : %p, e->next : %p, e->prev : %p\n",e,e->next,e->prev);
+          t->age = 0;
+          t->priority = 1;
+          list_pop_front(&feedback_queue_2);
+          list_push_back(&feedback_queue_1,&t->elem);
+          e = list_begin(&feedback_queue_2);
+          if(list_empty(&feedback_queue_2)){
+            break;
+          }
+        }else{
+          e = list_next(e);
+        }
+      }
+
+    case 2:
+      for (e = list_begin(&feedback_queue_3); e != list_end(&feedback_queue_3);)
+      {
+        t = list_entry (e, struct thread, elem);
+        t->age = t->age + 1;
+        if (t->age >= 20){
+          printf("[aging] list_remove[&feedback_queue_3]\n");
+//          printf("e : %p, e->next : %p, e->prev : %p\n",e,e->next,e->prev);
+          t->age = 0;
+          t->priority = 2;
+          list_pop_front(&feedback_queue_3);
+//          printf("e : %p, e->next : %p, e->prev : %p\n",e,e->next,e->prev);
+          list_push_back(&feedback_queue_2,&t->elem);
+//          printf("e : %p, e->next : %p, e->prev : %p\n",e,e->next,e->prev);
+          e = list_begin(&feedback_queue_3);
+//          printf("e : %p, e->next : %p, e->prev : %p\n",e,e->next,e->prev);
+          if(list_empty(&feedback_queue_3)){
+            break;
+          }else{
+            e = list_next(e);
+          }
+        }
+      }
+    default:
+      break;
+  }
+
+  printf("[aging] finish\n");
+}
+
 
 /* Prints thread statistics. */
 void
@@ -197,7 +311,7 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
-
+  t->age = 0;
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
   kf->eip = NULL;
@@ -231,7 +345,7 @@ thread_block (void)
   ASSERT (!intr_context ());
   ASSERT (intr_get_level () == INTR_OFF);
   if(strcmp(thread_name(),"idle")){
-    printf("[thred_block] thread_name : %s\n",thread_name());
+    printf("\033[32m[thred_block] thread_name : %s\n\033[0m",thread_name());
   }
 
   thread_current ()->status = THREAD_BLOCKED;
@@ -250,31 +364,31 @@ void
 thread_unblock (struct thread *t) 
 {
 //  printf("[%s] thread_unblock call\n",thread_name);
-  printf("[thread_unblock] thread_name : %s\n",t->name);
+  printf("[thread_unblock] thread_name : %s, current_pri : %d, t->pri : %d\n",t->name,current_queue,t->priority);
   enum intr_level old_level;
 
   ASSERT (is_thread (t));
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
-  // switch(thread_get_priority()){
-  //   case 0:
-  //     list_push_back(&feedback_queue_0,&t->elem);
-  //     break;
-  //   case 1:
-  //     list_push_back(&feedback_queue_1,&t->elem);
-  //     break;
-  //   case 2:
-  //     list_push_back(&feedback_queue_2,&t->elem);
-  //     break;
-  //   case 3:
-  //     list_push_back(&feedback_queue_3,&t->elem);
-  //     break;
-  //   default:
-  //     ASSERT(thread_get_priority()<4);
-  //     break;    
-  // }
+  // list_push_back (&ready_list, &t->elem);
+  switch(t->priority){
+    case 0:
+      list_push_back(&feedback_queue_0,&t->elem);
+      break;
+    case 1:
+      list_push_back(&feedback_queue_1,&t->elem);
+      break;
+    case 2:
+      list_push_back(&feedback_queue_2,&t->elem);
+      break;
+    case 3:
+      list_push_back(&feedback_queue_3,&t->elem);
+      break;
+    default:
+      ASSERT(thread_get_priority()<4);
+      break;    
+  }
 
   t->status = THREAD_READY;
   intr_set_level (old_level);
@@ -298,7 +412,7 @@ get_next_tick_to_wakeup (void)
 void
 thread_sleep (int64_t tick)
 {
-  printf("[thread_sleep] thread_name : %s, ticks : %d\n",thread_name(),tick);
+  printf("\033[32m[thread_sleep] thread_name : %s, ticks : %d\n\033[0m",thread_name(),tick);
   struct thread *cur;
   enum intr_level old_level;
 
@@ -309,6 +423,25 @@ thread_sleep (int64_t tick)
 
   update_next_tick_to_wakeup (cur->wakeup_tick = tick);
   list_push_back (&sleep_list, &cur->elem);
+
+  // if thread blocked then priority increase
+  // switch(thread_get_priority()){
+  //   case 0:
+  //     list_push_back(&feedback_queue_0,&cur->elem);
+  //     break;
+  //   case 1:
+  //     list_push_back(&feedback_queue_0,&cur->elem);
+  //     break;
+  //   case 2:
+  //     list_push_back(&feedback_queue_1,&cur->elem);
+  //     break;
+  //   case 3:
+  //     list_push_back(&feedback_queue_2,&cur->elem);
+  //     break;
+  //   default:
+  //     ASSERT(thread_get_priority()<4);
+  //     break;    
+  // }
 
   thread_block ();
 
@@ -399,14 +532,33 @@ thread_exit (void)
 void
 thread_yield (void) 
 {
+  // timeout process. so decrease priority
   struct thread *cur = thread_current ();
   enum intr_level old_level;
   
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+  if (cur != idle_thread){
+    // list_push_back (&ready_list, &cur->elem);
+    switch(cur->priority){
+      case 0:
+        cur->priority = cur->priority + 1;
+        list_push_back(&feedback_queue_1, &cur->elem);
+        break;
+      case 1:
+        cur->priority = cur->priority + 1;
+        list_push_back(&feedback_queue_2, &cur->elem);
+        break;
+      case 2:
+        cur->priority = cur->priority + 1;
+        list_push_back(&feedback_queue_3, &cur->elem);
+        break;
+      case 3:
+        list_push_back(&feedback_queue_3, &cur->elem);
+        break;
+    }
+  }
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -582,6 +734,28 @@ alloc_frame (struct thread *t, size_t size)
   return t->stack;
 }
 
+int next_queue_to_search(void){
+  switch (0)
+  {
+  case 0:
+    if(!list_empty(&feedback_queue_0))
+      return 0;
+  case 1:
+    if(!list_empty(&feedback_queue_1))
+      return 1;
+  case 2:
+    if(!list_empty(&feedback_queue_2))
+      return 2;
+  case 3:
+    if(!list_empty(&feedback_queue_3))
+      return 3;
+  default:
+    break;
+  }
+  return -1;
+
+}
+
 /* Chooses and returns the next thread to be scheduled.  Should
    return a thread from the run queue, unless the run queue is
    empty.  (If the running thread can continue running, then it
@@ -590,10 +764,25 @@ alloc_frame (struct thread *t, size_t size)
 static struct thread *
 next_thread_to_run (void) 
 {
-  if (list_empty (&ready_list))
+  int next_queue = next_queue_to_search();
+  switch (next_queue)
+  {
+  case -1:
     return idle_thread;
-  else
-    return list_entry (list_pop_front (&ready_list), struct thread, elem);
+  case 0:
+    return list_entry (list_pop_front (&feedback_queue_0), struct thread, elem);
+  case 1:
+    return list_entry (list_pop_front (&feedback_queue_1), struct thread, elem);
+  case 2:
+    return list_entry (list_pop_front (&feedback_queue_2), struct thread, elem);
+  case 3:
+    return list_entry (list_pop_front (&feedback_queue_3), struct thread, elem);
+  }
+
+  // if (list_empty (&ready_list))
+  //   return idle_thread;
+  // else
+  //   return list_entry (list_pop_front (&ready_list), struct thread, elem);
 }
 
 /* Completes a thread switch by activating the new thread's page
@@ -621,7 +810,8 @@ thread_schedule_tail (struct thread *prev)
 
   /* Mark us as running. */
   cur->status = THREAD_RUNNING;
-
+  current_queue = cur->priority;
+  cur->age = 0;
   /* Start new time slice. */
   thread_ticks = 0;
 
@@ -640,6 +830,7 @@ thread_schedule_tail (struct thread *prev)
       ASSERT (prev != cur);
       palloc_free_page (prev);
     }
+  debug_queue();
 }
 
 /* Schedules a new process.  At entry, interrupts must be off and
@@ -686,3 +877,64 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+void debug_queue(void){
+  struct list_elem *e;
+  struct thread *t;
+  printf("\n");
+  printf("\033[33m========================= Debug Info [MLQ] =========================\033[0m\n");
+  printf("\033[36mCurrent Working Thread: [%s] pri:%d \033[0m\n\n",thread_current()->name,thread_current()->priority);
+
+  printf("=========== feedback_queue_0 =============\n");
+  if(!list_empty(&feedback_queue_0)){
+    for (e = list_begin(&feedback_queue_0); e != list_end(&feedback_queue_0);
+            e = list_next(e))
+        {
+          t = list_entry (e, struct thread, elem);
+          // printf("[%s] pri:%d, age : %d, e: %p, e->next : %p\n",t->name,t->priority,t->age,e,e->next);
+          printf("[%s] pri:%d, age : %d \n",t->name,t->priority,t->age);
+        }
+  }else{
+    printf("feedback_queue_0 is empty!\n");
+  }
+  printf("=========== feedback_queue_1 =============\n");
+  if(!list_empty(&feedback_queue_1)){
+    for (e = list_begin(&feedback_queue_1); e != list_end(&feedback_queue_1);
+            e = list_next(e))
+        {
+          t = list_entry (e, struct thread, elem);
+          // printf("[%s] pri:%d, age : %d, e: %p, e->next : %p\n",t->name,t->priority,t->age,e,e->next);
+          printf("[%s] pri:%d, age : %d \n",t->name,t->priority,t->age);
+        }
+  }else{
+    printf("feedback_queue_1 is empty!\n");
+  }
+  printf("=========== feedback_queue_2 =============\n");
+  if(!list_empty(&feedback_queue_2)){
+    for (e = list_begin(&feedback_queue_2); e != list_end(&feedback_queue_2);
+            e = list_next(e))
+        {
+          t = list_entry (e, struct thread, elem);
+        //  printf("[%s] pri:%d, age : %d, e: %p, e->next : %p\n",t->name,t->priority,t->age,e,e->next);
+          printf("[%s] pri:%d, age : %d \n",t->name,t->priority,t->age);
+        }
+  }else{
+    printf("feedback_queue_2 is empty!\n");
+  }
+  printf("=========== feedback_queue_3 =============\n");
+  if(!list_empty(&feedback_queue_3)){
+    for (e = list_begin(&feedback_queue_3); e != list_end(&feedback_queue_3);
+            e = list_next(e))
+        {
+          t = list_entry (e, struct thread, elem);
+        //  printf("[%s] pri:%d, age : %d, e: %p, e->next : %p\n",t->name,t->priority,t->age,e,e->next);
+          printf("[%s] pri:%d, age : %d \n",t->name,t->priority,t->age);
+        }
+  }else{
+    printf("feedback_queue_3 is empty!\n");
+  }
+
+  printf("\n");
+  printf("\033[33m========================= Debug End [MLQ] =========================\033[0m\n");
+  printf("\n");
+}

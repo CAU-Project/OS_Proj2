@@ -21,8 +21,8 @@ typedef int tid_t;
 
 /* Thread priorities. */
 #define PRI_MIN 0                       /* Lowest priority. */
-#define PRI_DEFAULT 31                  /* Default priority. */
-#define PRI_MAX 63                      /* Highest priority. */
+#define PRI_DEFAULT 3                  /* Default priority. */
+#define PRI_MAX 4                      /* Highest priority. */
 
 /* A kernel thread or user process.
 
@@ -89,7 +89,7 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
-
+    int age;
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
@@ -114,6 +114,7 @@ void thread_init (void);
 void thread_start (void);
 
 void thread_tick (void);
+void aging(void);
 void thread_print_stats (void);
 
 typedef void thread_func (void *aux);
@@ -130,6 +131,7 @@ struct thread *thread_current (void);
 tid_t thread_tid (void);
 const char *thread_name (void);
 
+int next_queue_to_search(void);
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);
 
@@ -144,5 +146,7 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+void debug_queue(void);
 
 #endif /* threads/thread.h */

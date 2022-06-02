@@ -10,14 +10,21 @@
 #include "devices/timer.h"
 #include "projects/mfq/mfq.h"
 
+
 void test_loop(void *aux)
 {
     tid_t tid = thread_tid();
     /// TODO: make your own test
     while(1){
-
+        int i =2;
         printf("[%s] test_loop in\n",thread_name());
-        thread_print_stats();
+        for(;;){
+            if(2147483647 % i == 0){
+                printf("find the prime");
+                break;
+            }
+            i++;
+        }
         timer_msleep(1000);
     }
 }
