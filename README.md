@@ -6,7 +6,7 @@ Project #2의 목적은 Pintos를 이용하여 페이지 할당과 스케줄링 
 
 - [2022OSProj2_vfinal.docx 참고]
 
-# Page Allocation
+# 1. Page Allocation
 
 연관 함수들
 
@@ -30,7 +30,7 @@ void palloc_get_status (enum palloc_flags flags); // 할당된 페이지들의 �
 ```
 
 
-## palloc_get_multiple
+## 1.1 palloc_get_multiple
 
 pintos의 기본 페이지 할당 함수인 palloc_get_multiple()함수를 분석해 본다.
 
@@ -47,6 +47,7 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
     return NULL;
 
   lock_acquire (&pool->lock);
+  // 이 부분이 first fit 방식
   page_idx = bitmap_scan_and_flip (pool->used_map, 0, page_cnt, false);
   lock_release (&pool->lock);
 
@@ -69,7 +70,7 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
   return pages;
 }
 ```
-### struct pool
+### 1.1.1 struct pool
 
 **pool** 구조체. 상호배제를 위한 lock, 풀 공간의 사용 여부 표시를 위한 bitmap, 시작 주소를 가지고 있는 base 가 있다.
 ```c
@@ -83,9 +84,9 @@ struct pool
 
 ```
 
-### bitmap_scan()
+### 1.1.2 bitmap_scan()
 페이지 할당을 위해서 pool의 비트맵을 스캔하는 함수이다.
- 
+
 ```c
 // bitmap_scan함수를 이용했기 때문에 pintos에서 페이지 할당은 first fit 정책인 것이다. 내용을 살펴보면, bitmap_scan은 start 부터 인덱스를 증가시키면서 사용가능한 bitmap을 찾고 있다. 즉 사용가능한 메모리를 처음부터 스캔해서 최초(first) 사용 가능한 메모리 공간을 할당한다. 
 size_t bitmap_scan (const struct bitmap *b, size_t start, size_t cnt, bool value) 
@@ -114,3 +115,27 @@ size_t bitmap_scan_and_flip (struct bitmap *b, size_t start, size_t cnt, bool va
 }
 ```
 
+## 1.2 buddy system
+
+분석결과 bitmap_scan 함수를 사용하지 않고 다른 함수를 만들어서 bitmap_scan함수를 대체해야 한다. 해당 함수를 bitmap_scan_and_flip_buddy()로 만든다.
+
+```c
+void *
+palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
+{
+    // .. 생략
+  lock_acquire (&pool->lock);
+  // 이 부분이 first fit 방식
+  /*page_idx = bitmap_scan_and_flip (pool->used_map, 0, page_cnt, false);*/
+
+  page_idx = bitmap_scan_and_flip_buddy (pool->used_map, 0, page_cnt, false);
+  
+  lock_release (&pool->lock);
+
+    // .. 생략
+
+
+  return pages;
+}
+
+```
