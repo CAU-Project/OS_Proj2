@@ -11,6 +11,15 @@ enum palloc_flags
     PAL_USER = 004              /* User page. */
   };
 
+struct buddy;
+
+struct buddy *buddy_new(unsigned num_of_fragments,char* name);
+int buddy_alloc(struct buddy *self, size_t size);
+void buddy_free(struct buddy *self, int offset);
+void buddy_dump(struct buddy *self);
+int buddy_size(struct buddy *self, int offset);
+
+
 void palloc_init (size_t user_page_limit);
 void *palloc_get_page (enum palloc_flags);
 void *palloc_get_multiple (enum palloc_flags, size_t page_cnt);
