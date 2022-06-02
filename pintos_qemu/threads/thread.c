@@ -145,7 +145,7 @@ thread_start (void)
 void
 thread_tick (void) 
 {
-  printf("[thread_tick] thread_name : %s, current_queue : %d, thread_pri : %d\n",thread_name(),current_queue,thread_current()->priority);
+  printf("[thread_tick] ticks:%d \n",kernel_ticks);
   struct thread *t = thread_current ();
 
   /* Update statistics. */
@@ -202,8 +202,9 @@ void aging(void){
         t = list_entry (e, struct thread, elem);
         t->age = t->age + 1;
         if (t->age >= 20){
-          printf("[aging] list_remove[&feedback_queue_1]\n");
-          printf("e : %p, e->next : %p, e->prev : %p\n",e,e->next,e->prev);
+          printf("\033[34m[%s] thread age reaches 20. move fq1->fq0\n\033[0m",t->name);
+//          printf("[aging] list_remove[&feedback_queue_1]\n");
+//          printf("e : %p, e->next : %p, e->prev : %p\n",e,e->next,e->prev);
           t->age = 0;
           t->priority = 0;
           list_pop_front(&feedback_queue_1);
@@ -222,8 +223,9 @@ void aging(void){
         t = list_entry (e, struct thread, elem);
         t->age = t->age + 1;
         if (t->age >= 20){
-          printf("[aging] list_remove[&feedback_queue_2]\n");
-          printf("e : %p, e->next : %p, e->prev : %p\n",e,e->next,e->prev);
+          printf("\033[34m[%s] thread age reaches 20. move fq2->fq1\n\033[0m",t->name);
+//          printf("[aging] list_remove[&feedback_queue_2]\n");
+//          printf("e : %p, e->next : %p, e->prev : %p\n",e,e->next,e->prev);
           t->age = 0;
           t->priority = 1;
           list_pop_front(&feedback_queue_2);
@@ -242,8 +244,10 @@ void aging(void){
       {
         t = list_entry (e, struct thread, elem);
         t->age = t->age + 1;
+//        printf("[%s] age: %d  e: %p\n",t->name,t->age,e);
         if (t->age >= 20){
-          printf("[aging] list_remove[&feedback_queue_3]\n");
+          printf("\033[34m[%s] thread age reaches 20. move fq3->fq2\n\033[0m",t->name);
+//          printf("[aging] list_remove[&feedback_queue_3]\n");
 //          printf("e : %p, e->next : %p, e->prev : %p\n",e,e->next,e->prev);
           t->age = 0;
           t->priority = 2;
@@ -255,16 +259,16 @@ void aging(void){
 //          printf("e : %p, e->next : %p, e->prev : %p\n",e,e->next,e->prev);
           if(list_empty(&feedback_queue_3)){
             break;
-          }else{
-            e = list_next(e);
           }
+        }else{
+          e = list_next(e);
         }
       }
     default:
       break;
   }
 
-  printf("[aging] finish\n");
+//  printf("[aging] finish\n");
 }
 
 
@@ -364,7 +368,7 @@ void
 thread_unblock (struct thread *t) 
 {
 //  printf("[%s] thread_unblock call\n",thread_name);
-  printf("[thread_unblock] thread_name : %s, current_pri : %d, t->pri : %d\n",t->name,current_queue,t->priority);
+  printf("[thread_unblock] thread_name : %s, current_pri : %d, t->pri : %d t-> age : %d\n",t->name,current_queue,t->priority,t->age);
   enum intr_level old_level;
 
   ASSERT (is_thread (t));
@@ -883,8 +887,8 @@ void debug_queue(void){
   struct thread *t;
   printf("\n");
   printf("\033[33m========================= Debug Info [MLQ] =========================\033[0m\n");
-  printf("\033[36mCurrent Working Thread: [%s] pri:%d \033[0m\n\n",thread_current()->name,thread_current()->priority);
-
+  printf("\033[36mCurrent Working Thread: [%s] pri:%d \033[0m\n",thread_current()->name,thread_current()->priority);
+  printf("\033[31mcurrent ticks: %d \033[0m\n\n",kernel_ticks);
   printf("=========== feedback_queue_0 =============\n");
   if(!list_empty(&feedback_queue_0)){
     for (e = list_begin(&feedback_queue_0); e != list_end(&feedback_queue_0);

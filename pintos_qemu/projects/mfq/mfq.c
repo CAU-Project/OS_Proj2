@@ -24,6 +24,9 @@ void test_loop(void *aux)
                 break;
             }
             i++;
+            if(i %100000000==0){
+                timer_msleep(300);
+            }
         }
         timer_msleep(1000);
     }
