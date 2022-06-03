@@ -376,7 +376,7 @@ palloc_free_multiple (void *pages, size_t page_cnt)
   ASSERT (bitmap_all (pool->used_map, page_idx, page_cnt));
   bitmap_set_multiple (pool->used_map, page_idx, page_cnt, false);
 
-//  printf("\033[32m[pfree] deallocate page in idx: %d, page_cnt : %d\n\033[0m",page_idx,page_cnt);
+  printf("\033[32m[pfree] deallocate page in idx: %d, page_cnt : %d\n\033[0m",page_idx,page_cnt);
 }
 
 /* Frees the page at PAGE. */
@@ -467,7 +467,7 @@ palloc_get_status (enum palloc_flags flags)
     for(unsigned int j=0; j <kernel_bitmap_size % 32;j++){
       printf("%zu ",bitmap_test(kernel_bitmap,32*i+j));
     }
-    printf("\n");
+    printf("\n\n\n\n");
   }else{
     // print user pool's page
     printf("\033[34m======================= palloc_get_status:user =======================\n\033[0m");
@@ -486,6 +486,6 @@ palloc_get_status (enum palloc_flags flags)
         printf("%zu ",bitmap_test(user_bitmap,32*i+j));
     }
     
-    printf("\n");
+    printf("\n\n\n\n");
     }
 }

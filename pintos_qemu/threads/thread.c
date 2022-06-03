@@ -73,6 +73,9 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
 
+/* debug */
+bool debug = false;
+
 static void kernel_thread (thread_func *, void *aux);
 
 static void idle (void *aux UNUSED);
@@ -145,9 +148,10 @@ thread_start (void)
 void
 thread_tick (void) 
 {
-  printf("[thread_tick] ticks:%d \n",kernel_ticks);
   struct thread *t = thread_current ();
 
+  if(debug) printf("[thread_tick] current_thread : %s, ticks:%d \n",t->name,kernel_ticks);
+  
   /* Update statistics. */
   if (t == idle_thread)
     idle_ticks++;
@@ -202,7 +206,7 @@ void aging(void){
         t = list_entry (e, struct thread, elem);
         t->age = t->age + 1;
         if (t->age >= 20){
-          printf("\033[34m[%s] thread age reaches 20. move fq1->fq0\n\033[0m",t->name);
+          if(debug) printf("\033[34m[%s] thread age reaches 20. move fq1->fq0\n\033[0m",t->name);
 //          printf("[aging] list_remove[&feedback_queue_1]\n");
 //          printf("e : %p, e->next : %p, e->prev : %p\n",e,e->next,e->prev);
           t->age = 0;
@@ -223,7 +227,7 @@ void aging(void){
         t = list_entry (e, struct thread, elem);
         t->age = t->age + 1;
         if (t->age >= 20){
-          printf("\033[34m[%s] thread age reaches 20. move fq2->fq1\n\033[0m",t->name);
+          if(debug) printf("\033[34m[%s] thread age reaches 20. move fq2->fq1\n\033[0m",t->name);
 //          printf("[aging] list_remove[&feedback_queue_2]\n");
 //          printf("e : %p, e->next : %p, e->prev : %p\n",e,e->next,e->prev);
           t->age = 0;
@@ -246,7 +250,7 @@ void aging(void){
         t->age = t->age + 1;
 //        printf("[%s] age: %d  e: %p\n",t->name,t->age,e);
         if (t->age >= 20){
-          printf("\033[34m[%s] thread age reaches 20. move fq3->fq2\n\033[0m",t->name);
+          if(debug) printf("\033[34m[%s] thread age reaches 20. move fq3->fq2\n\033[0m",t->name);
 //          printf("[aging] list_remove[&feedback_queue_3]\n");
 //          printf("e : %p, e->next : %p, e->prev : %p\n",e,e->next,e->prev);
           t->age = 0;
@@ -299,7 +303,7 @@ tid_t
 thread_create (const char *name, int priority,
                thread_func *function, void *aux) 
 {
-  printf("[thread_create] thread_name : %s\n",name);
+  if(debug) printf("[thread_create] thread_name : %s\n",name);
   struct thread *t;
   struct kernel_thread_frame *kf;
   struct switch_entry_frame *ef;
@@ -349,7 +353,7 @@ thread_block (void)
   ASSERT (!intr_context ());
   ASSERT (intr_get_level () == INTR_OFF);
   if(strcmp(thread_name(),"idle")){
-    printf("\033[32m[thred_block] thread_name : %s\n\033[0m",thread_name());
+    if(debug) printf("\033[32m[thred_block] thread_name : %s\n\033[0m",thread_name());
   }
 
   thread_current ()->status = THREAD_BLOCKED;
@@ -368,7 +372,7 @@ void
 thread_unblock (struct thread *t) 
 {
 //  printf("[%s] thread_unblock call\n",thread_name);
-  printf("[thread_unblock] thread_name : %s, current_pri : %d, t->pri : %d t-> age : %d\n",t->name,current_queue,t->priority,t->age);
+  if(debug) printf("[thread_unblock] thread_name : %s, current_pri : %d, t->pri : %d t-> age : %d\n",t->name,current_queue,t->priority,t->age);
   enum intr_level old_level;
 
   ASSERT (is_thread (t));
@@ -416,7 +420,7 @@ get_next_tick_to_wakeup (void)
 void
 thread_sleep (int64_t tick)
 {
-  printf("\033[32m[thread_sleep] thread_name : %s, ticks : %d\n\033[0m",thread_name(),tick);
+  if(debug) printf("\033[32m[thread_sleep] thread_name : %s, ticks : %d\n\033[0m",thread_name(),tick);
   struct thread *cur;
   enum intr_level old_level;
 
@@ -455,7 +459,7 @@ thread_sleep (int64_t tick)
 void
 thread_wakeup (int64_t current_tick)
 {
-  printf("[thread_wakeup] start\n");
+  if(debug) printf("[thread_wakeup] start\n");
   struct list_elem *e;
 
   next_tick_to_wakeup = INT64_MAX;
@@ -834,7 +838,7 @@ thread_schedule_tail (struct thread *prev)
       ASSERT (prev != cur);
       palloc_free_page (prev);
     }
-  debug_queue();
+  if(debug) debug_queue();
 }
 
 /* Schedules a new process.  At entry, interrupts must be off and
@@ -941,4 +945,8 @@ void debug_queue(void){
   printf("\n");
   printf("\033[33m========================= Debug End [MLQ] =========================\033[0m\n");
   printf("\n");
+}
+
+void debug_on(void){
+  debug = true;
 }

@@ -42,6 +42,7 @@ void run_mfqtest(char **argv)
     old_level = intr_disable ();
 
     /// TODO: make your own test
+    debug_on();
 	cnt = 0;
 	for (token = strtok_r (argv[1], ":", &save_ptr); token != NULL; 
 		token = strtok_r (NULL, ":", &save_ptr)) {
