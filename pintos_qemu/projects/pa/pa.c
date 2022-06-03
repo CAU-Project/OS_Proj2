@@ -9,11 +9,7 @@
 
 void run_patest(char **argv)
 {   
-    /// TODO: make your own test
-    
 
-    while (1) {
-        
         /* Test for kernel page */
 
         palloc_get_status(0);
@@ -116,6 +112,5 @@ void run_patest(char **argv)
         palloc_free_multiple(user_palloc7,50);
         palloc_get_status(PAL_USER);
 
-        timer_msleep(1000);
-    }
+
 }
