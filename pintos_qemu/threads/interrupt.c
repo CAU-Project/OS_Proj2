@@ -221,7 +221,6 @@ intr_context (void)
 void
 intr_yield_on_return (void) 
 {
-//  printf("[intr_yield_on_return] thread_name : %s\n",thread_name());
   ASSERT (intr_context ());
   yield_on_return = true;
 }
