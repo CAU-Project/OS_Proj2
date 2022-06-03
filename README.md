@@ -139,3 +139,163 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
 }
 
 ```
+
+
+# 2. Mutilevel Feedback Queue
+Pintos에 기본적으로 구현되어 있는 스케줄링 정책은 Round Robin 방식이다. 이를 MFQ방식으로 바꿔야 한다.
+
+먼저 쓰레드의 생성부터 어떻게 정책이 적용되고 있는지 분석한다.
+
+## 2.1 Thead_init()
+
+init.c에서 가장 먼저 호출하는 함수이다. Thread 관련 설정을 위한 초기 설정 함수로써 init_thread로 main 쓰레드를 초기화 하는 것을 볼 수 있다. 모든 쓰레드는 thread_create() -> init_thread()를 통해서 생성 및 초기화가 진행 된다.
+
+```c
+void
+thread_init (void) 
+{
+  ASSERT (intr_get_level () == INTR_OFF);
+
+  lock_init (&tid_lock);
+  list_init (&ready_list);
+  list_init (&all_list);
+  list_init (&sleep_list);
+
+  /* Set up a thread structure for the running thread. */
+  initial_thread = running_thread ();
+  init_thread (initial_thread, "main", PRI_DEFAULT);
+  initial_thread->status = THREAD_RUNNING;
+  initial_thread->tid = allocate_tid ();
+}
+```
+
+
+
+## 2.2 init_thread()
+이전에 설명한 init_thread()함수이다. 눈에 띄는 점은 마지막에 list_push_back(&all_list,&t->allelem); 함수이다. 음 , 이 함수는 건드릴 필요 없이 그대로 사용 하면 될 것 같다.
+
+```c
+/* Does basic initialization of T as a blocked thread named
+   NAME. */
+static void
+init_thread (struct thread *t, const char *name, int priority)
+{
+  enum intr_level old_level;
+
+  ASSERT (t != NULL);
+  ASSERT (PRI_MIN <= priority && priority <= PRI_MAX);
+  ASSERT (name != NULL);
+
+  memset (t, 0, sizeof *t);
+  t->status = THREAD_BLOCKED;
+  strlcpy (t->name, name, sizeof t->name);
+  t->stack = (uint8_t *) t + PGSIZE;
+  t->priority = priority;
+  t->magic = THREAD_MAGIC;
+
+  old_level = intr_disable ();
+  list_push_back (&all_list, &t->allelem);
+  intr_set_level (old_level);
+}
+
+
+```
+
+## 2.3 thread_create()
+thread를 만드는 함수이다. 초기 생성직후 어떠한 작업을 하는지 보자.
+
+변수들은 건드릴 게 없을 거 같고, 
+1. 페이지 할당(커널 영역)
+2. init_thread()로 이름, 우선순위 설정 해주고(변경 필요 x)
+3. 스택 프레임 설정(변경x)
+4. thread_unblock(t) -> 분석 필요
+
+마지막에 thread_unblock(t) 를 호출하는데 이게 무슨 함수인지 보자.
+
+```c
+tid_t
+thread_create (const char *name, int priority,
+               thread_func *function, void *aux) 
+{
+  struct thread *t;
+  struct kernel_thread_frame *kf;
+  struct switch_entry_frame *ef;
+  struct switch_threads_frame *sf;
+  tid_t tid;
+
+  ASSERT (function != NULL);
+
+  /* Allocate thread. */
+  t = palloc_get_page (PAL_ZERO);
+  if (t == NULL)
+    return TID_ERROR;
+
+  /* Initialize thread. */
+  init_thread (t, name, priority);
+  tid = t->tid = allocate_tid ();
+
+  /* Stack frame for kernel_thread(). */
+  kf = alloc_frame (t, sizeof *kf);
+  kf->eip = NULL;
+  kf->function = function;
+  kf->aux = aux;
+
+  /* Stack frame for switch_entry(). */
+  ef = alloc_frame (t, sizeof *ef);
+  ef->eip = (void (*) (void)) kernel_thread;
+
+  /* Stack frame for switch_threads(). */
+  sf = alloc_frame (t, sizeof *sf);
+  sf->eip = switch_entry;
+  sf->ebp = 0;
+
+  /* Add to run queue. */
+  thread_unblock (t);
+
+  return tid;
+}
+
+```
+
+
+## 2.4 thread_unblock(t)
+주석 부분을 읽어보면 쓰레드가 blocked 상태인 경우에 이를 Ready 상태로 바꿔준다. 이부분은 바꿔야 겠다. 기존에는 하나의 큐인 ready_list에서 모든 스케줄링을 진행했지만, 이제는 MFQ를 사용하기 때문에 시작하면 할당된 priority에 따라서 큐를 결정해야 한다.
+
+또한 고려사항은 해당 함수가 시작할때만 호출되는 함수인지 확인해야 한다.
+참조 되는 부분들을 보니 thread_create()와 thread_wakeup()이다.
+
+두 부분에서 다르게 작동해야 할까? 
+No. Tread가 block되거나 ready 상태에서 큐를 이동할 때, priority를 바꿔주자. 그러면 block -> ready로 갈때 priority만 보고 큐를 선택해 주면 되니까.
+
+- 문제 요구사항에서 block될 때, 바로 상위 우선순위 큐로 이동하라고 했으니까 block되는 코드에서 priority 1 뺴주자!
+
+```c
+/* Transitions a blocked thread T to the ready-to-run state.
+   This is an error if T is not blocked.  (Use thread_yield() to
+   make the running thread ready.)
+
+   This function does not preempt the running thread.  This can
+   be important: if the caller had disabled interrupts itself,
+   it may expect that it can atomically unblock a thread and
+   update other data. */
+void
+thread_unblock (struct thread *t) 
+{
+  enum intr_level old_level;
+
+  ASSERT (is_thread (t));
+
+  old_level = intr_disable ();
+  ASSERT (t->status == THREAD_BLOCKED);
+  list_push_back (&ready_list, &t->elem); // 이거 바꿔야함. 
+  t->status = THREAD_READY;
+  intr_set_level (old_level);
+}
+```
+
+여기까지 정리해 보면
+
+프로그램이 시작되어서 thread_create() -> init_thread() -> thread_unblock() 까지 수행돼서 priority에 맞도록 MFQ에 들어가게 된다.
+
+이 이후에는 어떻게 스케줄링이 진행되는지 더 찾아보자.
+
